@@ -65,13 +65,28 @@ resource "msgraph_resource_action" "put_schema" {
   
 }
 
+# Wait 30 seconds for password sync configuration to stabilize before starting sync jobs
+resource "time_sleep" "wait_for_password_sync" {
+  depends_on = [
+    msgraph_resource_action.entra_cloud_sync_secrets,
+    msgraph_resource_action.put_schema,
+    msgraph_resource.entra_cloud_sync_job_password_hash
+  ]
+  
+  create_duration = "30s"
+}
+
 resource "msgraph_resource_action" "start_job" {
+  depends_on = [time_sleep.wait_for_password_sync]
+  
   resource_url = "servicePrincipals/${azuread_application_from_template.aad2entra.service_principal_object_id}/synchronization/jobs/${msgraph_resource.entra_cloud_sync_job.output.job_id}"
   method       = "POST"
   action = "start"
 }
 
 resource "msgraph_resource_action" "start_job_password_hash" {
+  depends_on = [time_sleep.wait_for_password_sync]
+  
   resource_url = "servicePrincipals/${azuread_application_from_template.aad2entra.service_principal_object_id}/synchronization/jobs/${msgraph_resource.entra_cloud_sync_job_password_hash.output.job_id}"
   method       = "POST"
   action = "start"
